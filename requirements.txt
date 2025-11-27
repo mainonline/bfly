@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+requests
+geopy
+pydantic
+httpx
+pytest
+hypothesis
+pytest-mock
+python-dotenv

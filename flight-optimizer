@@ -1,0 +1,74 @@
+#!/usr/bin/env python3
+"""Flight Optimizer CLI - Find the most cost-efficient flight by price per kilometer."""
+
+import argparse
+import os
+import sys
+from dotenv import load_dotenv
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from optimizer.kiwi_client import KiwiClient
+from optimizer.flight_optimizer import find_best_flight_per_km
+
+
+def main():
+    load_dotenv()
+    
+    parser = argparse.ArgumentParser(
+        description='Find the most cost-efficient flight destination by price per kilometer.',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  ./flight-optimizer --from London --to Paris Berlin Madrid
+  ./flight-optimizer --from "New York" --to Boston Miami Chicago
+  ./flight-optimizer --from Tokyo --to Seoul Shanghai Bangkok
+        """
+    )
+    
+    parser.add_argument('--from', dest='from_city', required=True,
+                        help='Departure city')
+    parser.add_argument('--to', dest='to_cities', nargs='+', required=True,
+                        help='Destination cities')
+    
+    args = parser.parse_args()
+    
+    api_key = os.environ.get('KIWI_API_KEY')
+    if not api_key:
+        print("Error: KIWI_API_KEY environment variable not set", file=sys.stderr)
+        print("\nSet your API key:", file=sys.stderr)
+        print("  export KIWI_API_KEY='your_api_key_here'", file=sys.stderr)
+        print("Or create a .env file with:", file=sys.stderr)
+        print("  KIWI_API_KEY=your_api_key_here", file=sys.stderr)
+        sys.exit(1)
+    
+    try:
+        kiwi_client = KiwiClient(api_key)
+        
+        print(f"Searching for flights from {args.from_city} to {', '.join(args.to_cities)}...")
+        print("This may take a few seconds...\n")
+        
+        result = find_best_flight_per_km(args.from_city, args.to_cities, kiwi_client)
+        
+        print(f"Best destination: {result['destination']}")
+        print(f"Price per kilometer: ${result['price_per_km']:.2f}/km")
+        
+        if result.get('price_usd'):
+            print(f"\nFlight details:")
+            print(f"  Price: ${result['price_usd']:.2f}")
+            print(f"  Distance: {result['distance_km']:.0f} km")
+            print(f"  Route: {result['airport_from']} → {result['airport_to']}")
+        
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except KeyboardInterrupt:
+        print("\n\nSearch cancelled by user", file=sys.stderr)
+        sys.exit(130)
+    except Exception as e:
+        print(f"Unexpected error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()
